@@ -17,7 +17,7 @@ Scope {
     readonly property var call: {
         for (let i = 0; i < bridge.calls.count; i++) {
             const c = bridge.calls.get(i);
-            if (c.state === "incoming") return c;
+            if (bridge.isRinging(c)) return c;
         }
         return null;
     }
@@ -37,7 +37,13 @@ Scope {
 
     property int ringTimeoutMs: 45000
 
-    onCallChanged: { expired = false; dismissed = false; }
+    // Reset on the call's identity, not on the `call` object. A ringing call
+    // keeps emitting property updates -- the caller's name arrives after the
+    // number, for instance -- and each one hands back a fresh ListModel row
+    // object. Watching that made every update undo the dismissal, so "Later"
+    // had to be pressed once per update before it stuck.
+    readonly property string callId: call ? call.id : ""
+    onCallIdChanged: { expired = false; dismissed = false; }
 
     function dismiss() { root.dismissed = true; }
 
@@ -52,12 +58,7 @@ Scope {
     }
 
     // Prefer the contact book over a bare number.
-    readonly property string who: {
-        if (!call) return "";
-        if (call.name && call.name.length > 0) return call.name;
-        const resolved = bridge.nameFor(call.line);
-        return resolved.length > 0 ? resolved : (call.line || "Unknown caller");
-    }
+    readonly property string who: bridge.labelFor(call)
     readonly property string subtitle: {
         if (!call) return "";
         return (call.name || bridge.nameFor(call.line)) ? call.line : "";

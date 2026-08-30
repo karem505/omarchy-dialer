@@ -6,6 +6,9 @@ WP_CONF="${HOME}/.config/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconne
 
 echo "==> Installing to ${PREFIX}"
 mkdir -p "${PREFIX}"
+# Replace rather than merge: a plain copy leaves files behind that a later
+# version deleted, and stale .qml in ui/ is confusing at best.
+rm -rf "${PREFIX}/src" "${PREFIX}/ui"
 cp -r src ui "${PREFIX}/"
 
 echo "==> Installing desktop entry"

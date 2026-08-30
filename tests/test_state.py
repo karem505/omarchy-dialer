@@ -51,10 +51,44 @@ def test_upsert_call_twice_emits_only_on_change():
 
 
 def test_partial_property_update_merges():
-    st = DialerState()
+    st = DialerState(clock=lambda: 1000.0)
     st.upsert_call("/org/pipewire/Telephony/ag1/call1", {"State": "dialing", "LineIdentification": "+20"})
     out = events(st.upsert_call("/org/pipewire/Telephony/ag1/call1", {"State": "active"}))
-    assert out == [{"ev": "call", "id": "call1", "state": "active", "line": "+20"}]
+    assert out == [{"ev": "call", "id": "call1", "state": "active",
+                    "line": "+20", "started": 1000.0}]
+
+
+def test_connecting_stamps_the_start_once():
+    ticks = iter([1000.0, 2000.0])
+    st = DialerState(clock=lambda: next(ticks))
+    st.upsert_call("/org/pipewire/Telephony/ag1/call1", {"State": "incoming", "LineIdentification": "+20"})
+    first = events(st.upsert_call("/org/pipewire/Telephony/ag1/call1", {"State": "active"}))
+    # A later property change must not restart the clock.
+    later = events(st.upsert_call("/org/pipewire/Telephony/ag1/call1", {"Name": "Sara"}))
+    assert first[0]["started"] == 1000.0
+    assert later[0]["started"] == 1000.0
+
+
+def test_call_adopted_mid_flight_reports_no_start_time():
+    st = DialerState(clock=lambda: 1000.0)
+    # First sighting is already connected: the daemon missed the start and
+    # must not invent one.
+    out = events(st.upsert_call("/org/pipewire/Telephony/ag1/call1",
+                                {"State": "active", "LineIdentification": "+20"}))
+    assert "started" not in out[0]
+
+
+def test_hanging_up_clears_the_start_time():
+    ticks = iter([1000.0, 2000.0])
+    st = DialerState(clock=lambda: next(ticks))
+    path = "/org/pipewire/Telephony/ag1/call1"
+    st.upsert_call(path, {"State": "incoming"})
+    st.upsert_call(path, {"State": "active"})
+    st.remove_call(path)
+    # A new call reusing the same object path gets its own stamp.
+    st.upsert_call(path, {"State": "dialing"})
+    out = events(st.upsert_call(path, {"State": "active"}))
+    assert out[0]["started"] == 2000.0
 
 
 def test_snapshot_replays_full_state():

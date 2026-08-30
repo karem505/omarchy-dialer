@@ -11,6 +11,7 @@ ShellRoot {
     }
 
     IncomingOverlay { bridge: dialer }
+    ActiveCallBar   { bridge: dialer }
 
     FloatingWindow {
         id: win
@@ -34,8 +35,12 @@ ShellRoot {
                 const c = dialer.activeCall;
                 const digits = "0123456789*#+";
 
-                // Digits reach the network as DTMF while a call is up.
-                if (c && c.state !== "incoming" && digits.indexOf(event.text) >= 0) {
+                // Digits reach the network as DTMF while a call is up. The
+                // length check is load-bearing: modifier keys arrive with an
+                // empty text, and "...".indexOf("") is 0, which would send a
+                // tone command with no digits in it on every Shift press.
+                if (c && !dialer.isRinging(c)
+                    && event.text.length === 1 && digits.indexOf(event.text) >= 0) {
                     dialer.tones(event.text);
                     event.accepted = true;
                     return;
@@ -43,7 +48,7 @@ ShellRoot {
 
                 // Incoming calls are handled by the overlay, which holds
                 // exclusive keyboard focus while it is up.
-                if (c && c.state === "incoming") return;
+                if (dialer.isRinging(c)) return;
 
                 if (c) {
                     if (event.key === Qt.Key_Escape) {
@@ -100,7 +105,7 @@ ShellRoot {
                     const c = dialer.activeCall;
                     // An incoming call is presented by IncomingOverlay, so the
                     // window keeps showing the dialer underneath it.
-                    if (!c || c.state === "incoming") return idleView;
+                    if (!c || dialer.isRinging(c)) return idleView;
                     return activeView;
                 }
             }

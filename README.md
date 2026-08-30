@@ -15,6 +15,7 @@ It is built for [Omarchy](https://omarchy.org) (Hyprland/Wayland) with [Quickshe
 - [Install](#install)
 - [Keyboard control](#keyboard-control)
 - [Incoming calls](#incoming-calls)
+- [The call bar](#the-call-bar)
 - [Contacts: importing .vcf and .csv](#contacts-importing-vcf-and-csv)
 - [Socket protocol](#socket-protocol)
 - [Development](#development)
@@ -127,6 +128,24 @@ The card also expires by itself after 45 seconds and falls back to the pill. Tha
 
 ---
 
+## The call bar
+
+Answering a call closes the overlay, and the Dialer window behind it is an ordinary floating window — buried under whatever you were working in, or sitting on another workspace. So for as long as a call is connected, a **call bar** sits under your status bar on every workspace.
+
+![Call bar showing caller name, running duration, HD badge, and Mute, Keypad and Hang up buttons](docs/screenshots/callbar.png)
+
+| Control | Effect |
+|---|---|
+| **Mute** | Sets HFP microphone gain to zero, and back to full on unmute |
+| **Keypad** | Expands a DTMF pad; while it is open, number keys send tones too |
+| **Hang up** | Ends the call |
+
+The bar is a layer-shell surface only as wide as its own contents, takes no keyboard focus until you open the keypad, and reserves no screen space, so it never displaces your windows. Each new call starts collapsed and unmuted.
+
+The duration is timed from the moment the daemon saw the call connect, not from when the interface opened — so opening the window mid-call shows the real elapsed time. A call the daemon **adopted** already in progress (it was started before the daemon, or WirePlumber restarted underneath it) has no recoverable start time, and the bar reads `on call` rather than inventing a number.
+
+---
+
 ## Contacts: importing .vcf and .csv
 
 Many Android phones — ColorOS and its relatives in particular — refuse Bluetooth phonebook access (PBAP) outright, and KDE Connect's contacts plugin returns an empty book without Android permissions that cannot be granted from Linux. Omarchy Dialer therefore reads contacts from a file you import.
@@ -184,12 +203,14 @@ Names in any script work throughout — import, search, contact list and caller 
 | Event | Example |
 |---|---|
 | `gateway` | `{"ev":"gateway","connected":true,"address":"AA:BB:CC:DD:EE:FF","name":"Example Phone"}` |
-| `call` | `{"ev":"call","id":"call1","state":"active","line":"+15550100"}` |
+| `call` | `{"ev":"call","id":"call1","state":"active","line":"+15550100","started":1756570000.0}` |
 | `call_removed` | `{"ev":"call_removed","id":"call1"}` |
 | `transport` | `{"ev":"transport","state":"active","codec":2}` |
 | `contacts` | `{"ev":"contacts","available":true,"count":4,"items":[…]}` |
 | `imported` | `{"ev":"imported","added":3,"updated":0,"skipped":0}` |
 | `error` | `{"ev":"error","cmd":"dial","message":"no gateway"}` |
+
+On a `call` event, `started` is the Unix timestamp at which the call connected. It is omitted when the daemon adopted a call already in progress and has no way to know.
 
 Every event is a complete statement of its subject, so a client that connects late needs no history — the daemon replays a full snapshot on connect.
 
@@ -219,6 +240,8 @@ Build the interface with no hardware, using canned event sequences:
 
 ```bash
 .venv/bin/python tests/fake_daemon.py demo          # or demo-active, demo-incoming, offline
+.venv/bin/python tests/fake_daemon.py answer-flow    # rings, then connects: the overlay -> call bar handover
+.venv/bin/python tests/fake_daemon.py chatty-incoming  # a ringing call that keeps updating its properties
 qs -p ui/shell.qml
 ```
 

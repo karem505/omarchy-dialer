@@ -9,33 +9,26 @@ ColumnLayout {
     required property var bridge
     required property var call
 
-    property int elapsed: 0
     spacing: 16
-
-    Timer {
-        interval: 1000
-        running: root.call && root.call.state === "active"
-        repeat: true
-        onTriggered: root.elapsed++
-    }
-
-    function clock(s) {
-        const m = Math.floor(s / 60), r = s % 60;
-        return m + ":" + (r < 10 ? "0" : "") + r;
-    }
 
     Text {
         Layout.alignment: Qt.AlignHCenter
-        text: root.call ? (root.call.name || root.call.line) : ""
+        text: root.bridge.labelFor(root.call)
         color: Theme.foreground
         font.pixelSize: 24
     }
 
     Text {
         Layout.alignment: Qt.AlignHCenter
-        text: root.call && root.call.state === "active"
-              ? root.clock(root.elapsed)
-              : (root.call ? root.call.state : "")
+        // Timed from when the daemon saw the call connect, not from when
+        // this view was built -- opening the window mid-call used to restart
+        // the count from zero.
+        text: {
+            if (!root.call) return "";
+            if (root.call.state !== "active") return root.call.state;
+            const d = root.bridge.duration(root.call);
+            return d.length > 0 ? d : "on call";
+        }
         color: Theme.dim
         font.pixelSize: 16
     }

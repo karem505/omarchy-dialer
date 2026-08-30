@@ -13,11 +13,57 @@ Item {
     property string transportState: "idle"
     property int    codec: 0
     property ListModel calls: ListModel {}
-    readonly property var activeCall: calls.count > 0 ? calls.get(0) : null
+
+    // oFono's vocabulary, which the PipeWire Telephony API mirrors: a second
+    // call arriving while one is up is reported as "waiting", not "incoming".
+    // Both are still ringing and neither is something you can talk on.
+    readonly property var ringingStates: ["incoming", "waiting"]
+    function isRinging(call) {
+        return !!call && ringingStates.indexOf(call.state) >= 0;
+    }
+
+    // The call the window should be showing. A connected call outranks a
+    // ringing one, which the incoming overlay is already presenting.
+    readonly property var activeCall: {
+        let ringing = null;
+        for (let i = 0; i < calls.count; i++) {
+            const c = calls.get(i);
+            if (!isRinging(c)) return c;
+            if (ringing === null) ringing = c;
+        }
+        return ringing;
+    }
 
     property ListModel contacts: ListModel {}
     property bool contactsAvailable: false
     property string lastImport: ""
+
+    // One clock for the whole shell, so the window and the status bar can
+    // never disagree about how long a call has been running.
+    property double now: Date.now() / 1000
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.calls.count > 0
+        onTriggered: root.now = Date.now() / 1000
+    }
+
+    // The daemon stamps when a call connected. A call it adopted in progress
+    // has no stamp, and we show nothing rather than a made-up number.
+    function duration(call) {
+        if (!call || !call.started) return "";
+        const s = Math.max(0, Math.floor(root.now - call.started));
+        const m = Math.floor(s / 60), r = s % 60;
+        return m + ":" + (r < 10 ? "0" : "") + r;
+    }
+
+    // Name from the call itself, else the contact book, else the raw number.
+    function labelFor(call) {
+        if (!call) return "";
+        if (call.name && call.name.length > 0) return call.name;
+        const resolved = nameFor(call.line);
+        return resolved.length > 0 ? resolved : (call.line || "Unknown");
+    }
 
     function send(obj) { sock.write(JSON.stringify(obj) + "\n"); }
 
@@ -59,7 +105,8 @@ Item {
             break;
         case "call": {
             const entry = {id: ev.id, state: ev.state || "",
-                           line: ev.line || "", name: ev.name || ""};
+                           line: ev.line || "", name: ev.name || "",
+                           started: ev.started || 0};
             const i = indexOfCall(ev.id);
             if (i >= 0) calls.set(i, entry); else calls.append(entry);
             break;
