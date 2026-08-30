@@ -17,6 +17,14 @@ sed "s|@PREFIX@|${PREFIX}|g" desktop/omarchy-dialer.desktop \
 chmod +x "${PREFIX}/ui/launch.sh"
 update-desktop-database "${HOME}/.local/share/applications" 2>/dev/null || true
 
+echo "==> Installing icon"
+# Ship our own icon: the freedesktop name "call-start" only exists in a few
+# legacy themes, so most desktops render no icon at all for it.
+ICONDIR="${HOME}/.local/share/icons/hicolor/scalable/apps"
+mkdir -p "${ICONDIR}"
+cp desktop/icons/omarchy-dialer.svg "${ICONDIR}/"
+gtk-update-icon-cache -f -t "${HOME}/.local/share/icons/hicolor" 2>/dev/null || true
+
 echo "==> Installing user service"
 mkdir -p "${HOME}/.config/systemd/user"
 cp systemd/omarchy-dialerd.service "${HOME}/.config/systemd/user/"
