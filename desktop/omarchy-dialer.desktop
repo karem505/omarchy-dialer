@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Dialer
+GenericName=Phone Dialer
+Comment=Place and receive phone calls through your paired phone
+Keywords=phone;call;dial;dialer;bluetooth;telephony;
+Exec=@PREFIX@/ui/launch.sh
+Icon=call-start
+Terminal=false
+Categories=Network;Telephony;
+StartupNotify=false

@@ -1,0 +1,14 @@
+[Unit]
+Description=Omarchy Dialer daemon
+After=pipewire.service wireplumber.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m dialerd
+Environment=PYTHONPATH=%h/.local/share/omarchy-dialer/src
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

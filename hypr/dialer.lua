@@ -1,0 +1,11 @@
+-- Optional: float the Dialer at a sensible size instead of tiling it.
+--
+-- Omarchy uses Hyprland's Lua parser, so window rules cannot be injected
+-- with `hyprctl keyword` at runtime -- they must come from the config.
+-- To use this, add the following line to ~/.config/hypr/looknfeel.lua:
+--
+--     o.window({ class = "org.quickshell", title = "^Dialer$" },
+--              { float = true, size = "380 620" })
+--
+-- It is scoped by title so it cannot affect the Omarchy shell, which is
+-- also a quickshell process.
