@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Optional Omarchy bar widget for the dialer (scripts/dialer-bar).
+#
+# No args   -> status JSON for the bar (empty output hides the indicator)
+# toggle    -> window mapped? focus it. Process alive but window gone? kill
+#              and relaunch. Dead? launch. This covers both the hidden-by-user
+#              case and the qs -n zombie case.
+# hide      -> close the window; the daemon keeps running, so a later toggle
+#              just relaunches the UI.
+#
+# Emits Waybar-style JSON; prints NOTHING (never {"text":""}) when dialerd is
+# not running -- the bar renders raw stdout for falsy text, so an empty string
+# would appear literally.
+
+DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+# Installed at ~/.config/omarchy/bar/scripts/ by install.sh; the running UI
+# lives at the install prefix. Fall back to a sibling ui/ for repo runs.
+UI_LAUNCH="${HOME}/.local/share/omarchy-dialer/ui/launch.sh"
+[[ -x "$UI_LAUNCH" ]] || UI_LAUNCH="$DIR/../ui/launch.sh"
+UI_RE="/omarchy-dialer/ui/shell\\.qml"
+ICON="󰏺"
+
+hidden() { exit 0; }
+
+# Nothing to indicate unless the daemon is up.
+pgrep -f "python3 -m dialerd" >/dev/null || hidden
+
+# Find the Dialer window (address + mapped flag) if any.
+read -r win_addr win_mapped <<EOF
+$(hyprctl clients -j 2>/dev/null | python3 -c '
+import json, sys
+try:
+    wins = json.load(sys.stdin)
+except Exception:
+    print("- 0"); raise SystemExit
+for w in wins:
+    t = str(w.get("title", "")).strip().lower()
+    t0 = str(w.get("initialTitle", "")).strip().lower()
+    if t == "dialer" or t0 == "dialer":
+        print(w.get("address", "-"), 1 if w.get("mapped") else 0)
+        raise SystemExit
+print("-", 0)')
+EOF
+win_addr=${win_addr:--}; win_mapped=${win_mapped:-0}
+
+case "${1:-status}" in
+  status)
+    if [ "$win_mapped" = "1" ]; then
+      printf '{"text":"%s","tooltip":"Dialer open - click to focus, right-click to hide","class":"open"}\n' "$ICON"
+    else
+      printf '{"text":"%s","tooltip":"Dialer UI hidden - click to reopen","class":"hidden"}\n' "$ICON"
+    fi
+    ;;
+
+  toggle)
+    if [ "$win_mapped" = "1" ] && [ "$win_addr" != "-" ]; then
+      hyprctl dispatch focuswindow "address:$win_addr" >/dev/null 2>&1
+      exit 0
+    fi
+    # Hidden or zombie: clear the -n lock, then relaunch detached.
+    pkill -f "$UI_RE" 2>/dev/null
+    sleep 0.3
+    ( setsid "$UI_LAUNCH" >/dev/null 2>&1 < /dev/null & ) 2>/dev/null
+    exit 0
+    ;;
+
+  hide)
+    if [ "$win_addr" != "-" ]; then
+      hyprctl dispatch closewindow "address:$win_addr" >/dev/null 2>&1
+    fi
+    exit 0
+    ;;
+esac

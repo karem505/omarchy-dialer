@@ -34,6 +34,13 @@ cp systemd/omarchy-dialerd.service "${HOME}/.config/systemd/user/"
 systemctl --user daemon-reload
 systemctl --user enable --now omarchy-dialerd.service
 
+echo "==> Installing status-bar widget"
+# Optional indicator: shows when the UI is hidden and can reopen/focus it.
+# It is added to the bar only if the user runs the `omarchy bar put` command
+# printed at the end of this script.
+mkdir -p "${HOME}/.config/omarchy/bar/scripts"
+install -m 0755 scripts/dialer-bar "${HOME}/.config/omarchy/bar/scripts/dialer-bar"
+
 echo "==> Ensuring hfp_hf auto-connects"
 if [[ -f "${WP_CONF}" ]]; then
   if grep -q "hfp_hf" "${WP_CONF}"; then
@@ -58,6 +65,27 @@ cat <<'NOTE'
                  { float = true, size = "380 620" })
 
     This installer does not edit your Hyprland config for you.
+
+==> Optional: status-bar indicator
+    Adds a phone icon to the Omarchy bar: click focuses/reopens the Dialer,
+    right-click hides it. The icon disappears when the daemon is not running.
+
+        omarchy bar put dialer-indicator
+
+    and add this to the "left" array in ~/.config/omarchy/shell.json:
+
+        {
+          "id": "dialer-indicator",
+          "type": "command",
+          "exec": "~/.config/omarchy/bar/scripts/dialer-bar",
+          "interval": 2,
+          "tooltip": "Dialer",
+          "onClick": "/home/$USER/.config/omarchy/bar/scripts/dialer-bar toggle",
+          "onRightClick": "/home/$USER/.config/omarchy/bar/scripts/dialer-bar hide"
+        }
+
+    (Replace $USER with your username; omarchy bar put registers the widget,
+    the JSON block above places and wires it.)
 
 ==> Done. Launch 'Dialer' from your app grid.
 NOTE
