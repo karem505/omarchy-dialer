@@ -88,6 +88,30 @@ o.window({ class = "org.quickshell", title = "^Dialer$" },
 
 The installer prints this but does not edit your Hyprland config for you.
 
+### Optional: status-bar indicator
+
+A phone icon for the Omarchy bar: click focuses/reopens the Dialer window, right-click hides it. The icon disappears when the daemon is not running, so it doubles as a connectivity hint.
+
+```bash
+omarchy bar put dialer-indicator
+```
+
+Then wire it in `~/.config/omarchy/shell.json` (inside `bar.layout.left`):
+
+```json
+{
+  "id": "dialer-indicator",
+  "type": "command",
+  "exec": "~/.config/omarchy/bar/scripts/dialer-bar",
+  "interval": 2,
+  "tooltip": "Dialer",
+  "onClick": "/home/YOURUSER/.config/omarchy/bar/scripts/dialer-bar toggle",
+  "onRightClick": "/home/YOURUSER/.config/omarchy/bar/scripts/dialer-bar hide"
+}
+```
+
+The widget lives at `scripts/dialer-bar` in this repository and is installed to `~/.config/omarchy/bar/scripts/` by `install.sh`.
+
 ---
 
 ## Keyboard control
@@ -281,6 +305,24 @@ Check the file actually contains contacts. A vCard must contain `BEGIN:VCARD`; a
 ### The window is tiled and stretched
 
 See [Optional: float the window](#optional-float-the-window).
+
+### Clicking **Dialer** in the launcher does nothing
+
+The UI process is probably alive without a window (`qs -n` then reports "already running" and exits instead of starting a visible one). Check with:
+
+```bash
+pgrep -af "omarchy-dialer/ui/shell.qml"   # process there?
+hyprctl clients | grep -i dialer          # window there?
+```
+
+If the process exists but the window does not, the launcher's built-in recovery handles it: running the desktop entry again kills the windowless instance and starts a fresh one. If you are on an older install, do it by hand:
+
+```bash
+pkill -f "omarchy-dialer/ui/shell.qml"
+# then launch Dialer again
+```
+
+Optionally install the status-bar indicator (see [Optional: status-bar indicator](#optional-status-bar-indicator)); its click does the same recovery in one place.
 
 ---
 
